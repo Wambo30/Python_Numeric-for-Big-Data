@@ -1,0 +1,136 @@
+# -*- coding: utf-8 -*-
+"""
+Created on Sat Oct 16 23:58:14 2021
+
+@author: hausser
+"""
+import numpy as np
+import matplotlib.pyplot as plt
+
+
+    
+class ODEResult(dict):
+    ''' Container object exposing keys as attributes.
+    Bunch objects are sometimes used as an output for functions and methods.
+    They extend dictionaries by enabling values to be accessed by key,
+    `bunch["value_key"]`, or by an attribute, `bunch.value_key`'''
+    
+    def __getattr__(self, name):
+        try:
+            return self[name]
+        except KeyError:
+            raise AttributeError
+            
+    def __setattr__(self, key, value):
+        self[key] = value        
+            
+    
+def euler_forward(f, t_span, y0, t_eval):
+    """
+  ....
+    """
+    t0 = t_span[0]
+    tf = t_span[1]
+    ys = np.zeros( (len(y0), len(t_eval) ), dtype = float )
+    ts = t_eval
+    ys[:, 0] = y0
+    
+    for k in range( len(t_eval) - 1 ):
+        h = ts[k+1] - ts[k] # Zeitschritt
+        ys[:, k+1] = ys[:, k] + h*f(ts[k], ys[:, k])
+    
+    return ODEResult(t=ts, y=ys)
+
+
+def rungekutta_43(f, t_span, y0, tol=1.e-6):
+    """
+       ... ergaenzen, nur ein Codegeruest
+
+    """
+    
+    q    = 5.                 # Hochschaltbegrenzung
+    rho  = 0.9                # Sicherheitsfaktor
+    s_min = 1.e-7             # absoluter Schwellwert fuer die interne Skalierung
+    t0 = t_span[0]            # Startzeitpunkt
+    tf = t_span[1]            # Endzeitpunkt
+    h_max = (tf - t0)/10.     # Maximale Schrittweite
+    h_min = (tf - t0)*1.e-10  # Minimale Schrittweite
+    ts = [t0]                 # Liste für die diskrete Zeitpunkte
+    ys = [y0]                 # Liste für die diskrete Loesung
+    
+    t = t0
+    y = y0
+    h = h_max
+    k1 = f(t, y)
+
+    f_anzahl = 1             # Anzahl der Auswertungen
+
+    while t < tf:
+        t_neu = t + h
+       
+        # ... 
+        # Berechnen k's
+        k2 = f(t + h/2, y + h*k1/2)
+        k3 = f(t + h/2, y + h*k2/2)
+        k4 = f(t + h  , y + h*k3)
+        k5 = f(t + h  , y + h*k1/6 + h*k2/3 + h*k3/3 + h*k4/6)
+
+        f_anzahl = f_anzahl + 4
+
+        y_neu = y + h*(k1/6 + k2/3 + k3/3 + k4/6)
+        #y_neu_dach = y + h*(k1/6 + k2/3 + k3/3 + k5/6)
+                              
+        fehler   = h/6*(k4-k5)  # Fehlerschaetzer sj # |y_neu - y_neu_dach|
+        h_opt =   h*(rho*tol/np.abs(fehler))**(1/4)      # Schrittweitenvorschlag # Ordung von RK p=3
+
+        h_neu     = np.min([h_opt, h_max, q*h])     # Begrenzung der Schrittweite
+    
+        if (h_neu < h_min) :          # Abbruch, falls Schrittweite zu klein
+            break
+    
+        if (fehler <= tol):    # Schritt wird akzeptiert
+            y  = y_neu
+            k1 = k5      #  FSAL
+            t  = t_neu;
+            h  = min(h_neu, tf - t)  # damit letzter Zeitschritt richtig
+            ys.append(y)             #  an die Liste anhaengen
+            ts.append(t)    
+        else:                # Schritt wird abgelehnt
+            h = h_neu
+    
+    ys = np.array(ys).transpose()      
+    ts = np.array(ts)
+    
+    return ODEResult(t=ts, y=ys, anzahl=f_anzahl)  # es sollen dann auch noch
+                                 # Anzahl Funktionsauswertungen 
+                                 # zurueckgegeben werden
+
+
+
+def test_skalar():
+    import matplotlib.pyplot as plt
+    def f(t,y):
+        return y
+    # y'=y => y = exp
+    # y' = t²*sin(y)
+    
+    y0 = np.array([1.])
+    t_span = [0, 1]
+    t_eval = np.linspace(0,1,5)
+    # Test Euler
+    sol1 = euler_forward(f, t_span, y0, t_eval)
+    plt.plot(sol1.t, sol1.y[0,:], label='p=1')
+    plt.legend()
+
+    # Test Runge Kuta
+    sol2 = rungekutta_43(f, t_span, y0)
+    plt.plot(sol2.t, sol2.y[0,:], label='p=4')
+    plt.legend()
+    
+#def test_system():
+    # ... auch vektorwertiges Problem testen, z.B. Lotka Volterra
+    
+  
+if __name__ == "__main__":
+    test_skalar()
+    #test_system()
